@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-9 col-lg-7 col-xl-6">
+
+      <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+        <div class="card-body p-4 p-md-5">
+
+          <div class="text-center mb-4">
+            <h1 class="fw-bold mb-2">Song Reviews</h1>
+            <p class="text-muted mb-0">Home</p>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12 col-sm-6">
+              <a class="btn btn-outline-primary w-100 py-3 rounded-3 fw-semibold"
+                 href="{% url 'show_categories' %}">
+                  <i class="bi bi-bar-chart-fill fs-1 me-2"></i>
+
+                  <p>Rankings</p>
+              </a>
+            </div>
+
+            <div class="col-12 col-sm-6">
+              <a class="btn btn-outline-secondary w-100 py-3 rounded-3 fw-semibold"
+                 href="{% url 'do_login' %}">
+                <i class="bi bi-chat-square-text-fill fs-1 me-2"></i>
+                  <p>Reviews</p>
+              </a>
+            </div>
+            {% if request.user.role == 'admin' %}
+                <div class="col-12 col-sm-6">
+                  <a class="btn btn-outline-success w-100 py-3 rounded-3 fw-semibold"
+                     href="{% url 'admin_panel' %}">
+                      <i class="bi bi-bug-fill fs-1 me-2"></i>
+
+                      <p>Admin</p>
+                  </a>
+                </div>
+            {% endif %}
+            <div class="col-12 col-sm-6">
+                  <a class="btn btn-outline-info w-100 py-3 rounded-3 fw-semibold"
+                     href="{% url 'show_songs' %}">
+                      <i class="bi bi-music-note fs-1 me-2"></i>
+
+                      <p>Songs</p>
+                  </a>
+            </div>
+            <div class="col-12 col-sm-6">
+              <a class="btn btn-outline-warning w-100 py-3 rounded-3 fw-semibold"
+                 href="{% url 'stats' %}">
+                  <i class="bi bi-file-earmark-spreadsheet fs-1 me-2"></i>
+
+                  <p>Stats</p>
+              </a>
+            </div>
+          </div>
+
+          <div class="text-center align-center mt-4">
+            {% if user.is_authenticated %}
+              <span class="badge text-bg-success rounded-pill px-3 py-2">
+                Logged in as {{ user.username }}
+              </span>
+                <a class="btn btn-outline-danger rounded-pill btn-sm" href="{% url 'do_logout' %}">
+                Log out
+              </a>
+            {% else %}
+                <div>
+                    <span class="badge text-bg-warning rounded-pill px-3 py-2">
+                    You’re not logged in
+                    </span>
+                    <a class="btn btn-info" href="{% url 'do_login' %}">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                        Log In now!
+                    </a>
+                </div>
+
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+
+      <p class="text-center text-muted mt-4 mb-0 small">
+        RankingProject · SongReviews
+      </p>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

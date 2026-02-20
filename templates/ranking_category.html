@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+
+<!-- SPECIFIC RANKING OF A CERTAIN CATEGORY -->
+
+{% block content %}
+    <!-- Back button-->
+    <div class="d-flex justify-content-between align-items-center p-2">
+        <a href="{% url 'show_categories' %}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="container py-4">
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h2 class="mb-0">Tierlist</h2>
+          <div class="text-muted small">Category: {{ category_code }} · Items: {{ category_size }}</div>
+        </div>
+        <button class="btn btn-primary" id="saveBtn">
+            {% if has_saved %}Update{% else %}Save{% endif %}
+        </button>
+      </div>
+
+      <!-- Tiers -->
+      <div class="tier-board mb-4">
+
+        {% for tier in tiers %}
+
+        <div class="tier-row border rounded-4 overflow-hidden mb-2">
+
+          <div class="tier-label tier-{{ tier }} d-flex align-items-center justify-content-center fw-bold">
+            {{ tier }}
+          </div>
+
+          <div class="tier-drop p-2" data-tier="{{ tier }}"></div>
+
+        </div>
+
+        {% endfor %}
+
+      </div>
+
+  <!-- Pool / all items -->
+  <div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0">All items</h5>
+
+        <!-- simple client-side filter -->
+        <input id="searchInput" class="form-control form-control-sm" style="max-width: 280px;"
+               placeholder="Search..." />
+      </div>
+
+      <div id="pool" class="pool-grid">
+
+        {% for item in items %}
+
+          <div class="item-card"
+               data-id="{{ item.code }}"
+               data-name="{{ item.name|lower }} {{ item.artist|lower }}">
+
+              <img src="{{ item.artwork }}" alt="{{ item.name }}">
+
+              <div class="meta">
+                <div class="title">{{ item.name }}</div>
+            </div>
+
+          </div>
+
+        {% endfor %}
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Save form -->
+  <form id="saveForm" method="POST" action="{% url 'save_tierlist' %}">
+    {% csrf_token %}
+    <input type="hidden" name="category_code" value="{{ category_code }}">
+    <input type="hidden" name="tier_data" id="tierDataInput">
+  </form>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+<script>
+    {% if saved_tiers %}
+      const saved = {{ saved_tiers|safe }};
+
+      Object.keys(saved).forEach(tier => {
+        const area = document.querySelector(`.tier-drop[data-tier="${tier}"]`);
+        if (!area) return;
+
+        saved[tier].forEach(id => {
+          const card = document.querySelector(`.item-card[data-id="${id}"]`);
+          if (card) area.appendChild(card);
+        });
+      });
+    {% endif %}
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const pool = document.getElementById("pool");
+      const tierAreas = document.querySelectorAll(".tier-drop");
+
+      // Make pool sortable
+      Sortable.create(pool, {
+        group: { name: "tiers", pull: true, put: true },
+        animation: 150,
+        sort: true
+      });
+
+      // Make tier sortable / droppable
+      tierAreas.forEach(area => {
+        Sortable.create(area, {
+          group: "tiers",
+          animation: 150,
+          sort: true
+        });
+      });
+
+      // Saving: collect tiers
+      document.getElementById("saveBtn").addEventListener("click", () => {
+        const data = {};
+        tierAreas.forEach(area => {
+          const tier = area.dataset.tier;
+          const ids = Array.from(area.querySelectorAll(".item-card"))
+            .map(el => parseInt(el.dataset.id));
+          data[tier] = ids;
+        });
+
+        document.getElementById("tierDataInput").value = JSON.stringify(data);
+        document.getElementById("saveForm").submit();
+      });
+
+      // Search filter
+      const searchInput = document.getElementById("searchInput");
+      searchInput.addEventListener("input", () => {
+        const q = searchInput.value.trim().toLowerCase();
+        pool.querySelectorAll(".item-card").forEach(card => {
+          const hay = card.dataset.name || "";
+          card.style.display = hay.includes(q) ? "" : "none";
+        });
+      });
+    });
+</script>
+
+{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/ranking_category.css' %}">
+{% endblock %}

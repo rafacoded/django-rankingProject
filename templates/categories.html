@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+{% load static %}
+
+<!-- ADMIN PAGE (MANAGE CATEGORIES) -->
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center p-2">
+        <a href="{% url 'admin_panel' %}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+  <!-- Categories Table -->
+  <h3 class="mb-4 text-center">Categories</h3>
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover align-middle">
+      <thead>
+        <tr>
+          <th style="width: 60px;">Code</th>
+          <th>Name</th>
+          <th>Description</th>
+          <th style="width: 180px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in categories %}
+          <tr>
+            <td>{{ c.code }}</td>
+            <td class="fw-semibold">{{ c.name }}</td>
+            <td class="text-muted">{{ c.description }}</td>
+              <td>
+                  <div class="d-flex flex-column gap-2">
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="{% url 'go_ranking' c.code %}">
+                          Tierlist
+                        </a>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-info edit-btn"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editCategoryModal"
+                                data-code="{{ c.code }}"
+                                data-name="{{ c.name|escape }}"
+                                data-logo="{{ c.logo|escape }}"
+                                data-description="{{ c.description|escape }}">
+                          Edit
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-danger delete-btn"
+                                data-bs-toggle="modal"
+                                data-bs-target="#confirmDeleteModal"
+                                data-code="{{ c.code }}"
+                                data-name="{{ c.name|escape }}">
+                          Delete
+                        </button>
+                  </div>
+              </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="text-center text-muted">No categories yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="my-5">
+
+  <!--  New Category Form  -->
+  <h3 class="mb-4 text-center">New Category</h3>
+
+  <form method="POST" id="categoryForm" class="card shadow-sm border-0 rounded-4 p-4" action="{% url 'go_categories' %}">
+    {% csrf_token %}
+      <input type="hidden" name="action" value="create_category">
+      <div class="row g-3">
+          <div class="col-md-6">
+              <label class="form-label">Name</label>
+              <label>
+                  <input class="form-control" name="name" required>
+              </label>
+          </div>
+
+          <div class="col-md-6">
+              <label class="form-label">Logo URL</label>
+              <label>
+                  <input class="form-control" name="logo" placeholder="https://..." required>
+              </label>
+          </div>
+
+          <div class="col-12">
+              <label class="form-label">Description</label>
+              <label>
+                  <input class="form-control" name="description" placeholder="..." required>
+              </label>
+          </div>
+        </div>
+
+      <div class="d-flex justify-content-center mt-4">
+          <button class="btn btn-primary">Create category</button>
+      </div>
+
+  </form>
+
+  <hr class="my-5">
+
+  <!-- ====================== Songs selector ====================== -->
+  <div class="d-flex flex-column justify-content-between align-items-center gap-3 mb-3">
+      <h3 class=" mb-0">Select and add songs to categories</h3>
+
+      <input class="form-control form-control-sm"
+             id="songSearch"
+             placeholder="Search songs...">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSearchBtn">
+        Clear
+      </button>
+
+      <button type="button"
+              class="btn btn-success d-none"
+              id="addBtn"
+              data-bs-toggle="modal"
+              data-bs-target="#addToCategoriesModal">
+          Add selected (<span id="selCount">0</span>)
+      </button>
+
+  </div>
+
+  <div class="row g-3" id="all-items">
+    {% for s in songs %}
+      <div class="col-12 col-sm-6 col-lg-4">
+        <div class="song-card card border-0 shadow-sm rounded-4 p-3"
+             data-id="{{ s.code }}"
+             data-name="{{ s.name|lower }} {{ s.artist|lower }}">
+
+          <div class="d-flex align-items-center gap-3">
+            <img src="{{ s.artwork }}" alt="{{ s.name }}"
+                 style="width:52px;height:52px;object-fit:cover;border-radius:12px;">
+            <div class="flex-grow-1">
+              <div class="fw-semibold">{{ s.name }}</div>
+              <div class="text-muted small">{{ s.artist }}</div>
+            </div>
+            <div class="badge text-bg-light">#{{ s.code }}</div>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="text-muted">No songs found.</div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- MODAL AÑADIR CANCIONES A CATEGORÍAS -->
+<div class="modal fade" id="addToCategoriesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" method="POST" action="{% url 'add_songs_category' %}">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Add songs to categories</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="text-muted mb-2">Choose categories:</p>
+
+        <div class="d-flex flex-column gap-2" style="max-height: 260px; overflow:auto;">
+          {% for c in categories %}
+            <label class="d-flex align-items-center gap-2">
+              <input type="checkbox" class="cat-check" value="{{ c.code }}">
+              <span class="fw-semibold">{{ c.name }}</span>
+            </label>
+          {% endfor %}
+        </div>
+
+        <input type="hidden" name="songs" id="modalSelectedSongs">
+        <input type="hidden" name="category_codes" id="modalSelectedCategories">
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" id="confirmAddBtn" disabled>Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL EDIT CATEGORY -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <form class="modal-content" method="POST" action="{% url 'update_category' %}">
+      {% csrf_token %}
+      <input type="hidden" name="code" id="editCode">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Edit category</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Name</label>
+            <input class="form-control" name="name" id="editName" required>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Logo URL</label>
+            <input class="form-control" name="logo" id="editLogo" required>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Description</label>
+            <input class="form-control" name="description" id="editDescription" required>
+          </div>
+        </div>
+          <hr class="my-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2">
+              <h6 class="fw-bold mb-0">Songs in this category</h6>
+
+              <button type="button" class="btn btn-sm btn-outline-danger" id="removeSelectedBtn" disabled>
+                Remove selected
+              </button>
+            </div>
+
+
+            <div class="text-muted small mb-3 p-2" id="songsInfo">Loading...</div>
+
+            <div id="songsInCategory" class="d-flex flex-column gap-2 p-2" style="max-height: 260px; overflow:auto;">
+
+            </div>
+
+        <div class="form-text mt-2">
+          Code is fixed (cannot be changed).
+        </div>
+      </div>
+
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary">Save changes</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE MODAL -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm delete</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-1">You’re about to delete:</p>
+        <div class="fw-semibold" id="delCatLabel"></div>
+        <p class="text-muted small mt-2 mb-0">
+          This will also remove this category code from all songs that contain it.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <a class="btn btn-danger" id="confirmDeleteLink">Delete</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- JS -->
+
+<!-- Update category -->
+<script>
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const editModal = document.getElementById("editCategoryModal");
+
+  const songsBox = document.getElementById("songsInCategory");
+  const songsInfo = document.getElementById("songsInfo");
+  const removeBtn = document.getElementById("removeSelectedBtn");
+
+  function renderSongs(list) {
+    songsBox.innerHTML = "";
+
+    if (!list.length) {
+      songsInfo.textContent = "No songs in this category yet.";
+      removeBtn.disabled = true;
+      return;
+    }
+
+    songsInfo.textContent = `${list.length} songs`;
+
+    list.forEach(s => {
+      const row = document.createElement("label");
+      row.className = "d-flex align-items-center gap-3 p-2 rounded-4 border bg-white";
+      row.style.cursor = "pointer";
+
+      row.innerHTML = `
+        <input type="checkbox" class="song-check" value="${s.code}">
+        <img src="${s.artwork}" alt="${s.name}"
+             style="width:40px;height:40px;object-fit:cover;border-radius:10px;">
+        <div class="flex-grow-1">
+          <div class="fw-semibold">${s.name}</div>
+          <div class="text-muted small">${s.artist}</div>
+        </div>
+        <span class="badge text-bg-light">#${s.code}</span>
+      `;
+
+      songsBox.appendChild(row);
+    });
+
+    songsBox.querySelectorAll(".song-check").forEach(ch => {
+      ch.addEventListener("change", () => {
+        const selected = songsBox.querySelectorAll(".song-check:checked").length;
+        removeBtn.disabled = selected === 0;
+        removeBtn.textContent = selected ? `Remove selected (${selected})` : "Remove selected";
+      });
+    });
+
+    removeBtn.textContent = "Remove selected";
+    removeBtn.disabled = true;
+  }
+
+  async function loadSongsForCategory(code) {
+    songsInfo.textContent = "Loading...";
+    songsBox.innerHTML = "";
+    removeBtn.disabled = true;
+
+    const res = await fetch(`/categories/${code}/songs/`);
+    const data = await res.json();
+    renderSongs(data.songs || []);
+  }
+
+  async function removeSelectedSongs(code) {
+    const selected = Array.from(songsBox.querySelectorAll(".song-check:checked"))
+      .map(x => x.value);
+
+    if (!selected.length) return;
+
+    const csrftoken = getCookie("csrftoken");
+    const form = new FormData();
+    selected.forEach(v => form.append("song_codes[]", v));
+
+    removeBtn.disabled = true;
+    removeBtn.textContent = "Removing...";
+
+    const res = await fetch(`/categories/${code}/songs/remove/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrftoken },
+      body: form
+    });
+
+    const data = await res.json();
+
+    if (data.ok) {
+      await loadSongsForCategory(code);
+    } else {
+      alert(data.error || "Error removing songs");
+      removeBtn.textContent = "Remove selected";
+    }
+  }
+
+  editModal.addEventListener("show.bs.modal", async (event) => {
+    const btn = event.relatedTarget;
+
+    const code = btn.dataset.code;
+    document.getElementById("editCode").value = code;
+    document.getElementById("editName").value = btn.dataset.name || "";
+    document.getElementById("editLogo").value = btn.dataset.logo || "";
+    document.getElementById("editDescription").value = btn.dataset.description || "";
+
+    await loadSongsForCategory(code);
+  });
+
+  removeBtn.addEventListener("click", async () => {
+    const code = document.getElementById("editCode").value;
+    await removeSelectedSongs(code);
+  });
+});
+</script>
+
+<!-- Delete category JS-->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("confirmDeleteModal");
+  const label = document.getElementById("delCatLabel");
+  const link = document.getElementById("confirmDeleteLink");
+
+  modal.addEventListener("show.bs.modal", (event) => {
+    const btn = event.relatedTarget;
+    const code = btn.dataset.code;
+    const name = btn.dataset.name;
+
+    label.textContent = `${name} (#${code})`;
+
+    link.href = `{% url 'delete_category' 0 %}`.replace("/0/", `/${code}/`);
+  });
+});
+</script>
+
+<!-- Select songs to associate them with categories -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const cards = Array.from(document.querySelectorAll("#all-items .song-card"));
+  const addBtn = document.getElementById("addBtn");
+  const selCount = document.getElementById("selCount");
+
+  const searchInput = document.getElementById("songSearch");
+  const clearBtn = document.getElementById("clearSearchBtn");
+
+  const modalSongs = document.getElementById("modalSelectedSongs");
+  const modalCats = document.getElementById("modalSelectedCategories");
+  const confirmAddBtn = document.getElementById("confirmAddBtn");
+
+  function getSelectedSongCodes() {
+    return cards
+      .filter(c => c.classList.contains("selected"))
+      .map(c => c.dataset.id);
+  }
+
+  function refreshUI() {
+    const selected = getSelectedSongCodes();
+    selCount.textContent = selected.length;
+
+    if (selected.length > 0) addBtn.classList.remove("d-none");
+    else addBtn.classList.add("d-none");
+  }
+
+  // Toggle selection
+  cards.forEach(card => {
+    card.addEventListener("click", () => {
+      card.classList.toggle("selected");
+      refreshUI();
+    });
+  });
+
+  // Dynamic search
+  function applyFilter() {
+  const q = (searchInput.value || "").trim().toLowerCase();
+
+  cards.forEach(card => {
+    const hay = card.dataset.name || "";
+    const col = card.closest(".song-col") || card.parentElement; // seguridad
+
+    if (hay.includes(q)) {
+      col.style.display = "";
+    } else {
+      col.style.display = "none";
+    }
+  });
+
+  }
+
+
+  searchInput.addEventListener("input", applyFilter);
+
+  clearBtn.addEventListener("click", () => {
+    searchInput.value = "";
+    applyFilter();
+  });
+
+  // Modal: fill selected songs when opening
+  const modalEl = document.getElementById("addToCategoriesModal");
+  modalEl.addEventListener("show.bs.modal", () => {
+    const selected = getSelectedSongCodes();
+    modalSongs.value = JSON.stringify(selected);
+
+    document.querySelectorAll(".cat-check").forEach(ch => ch.checked = false);
+    modalCats.value = "[]";
+    confirmAddBtn.disabled = true;
+  });
+
+  document.querySelectorAll(".cat-check").forEach(ch => {
+    ch.addEventListener("change", () => {
+      const selectedCats = Array.from(document.querySelectorAll(".cat-check:checked"))
+        .map(x => x.value);
+      modalCats.value = JSON.stringify(selectedCats);
+      confirmAddBtn.disabled = selectedCats.length === 0;
+    });
+  });
+
+  refreshUI();
+});
+</script>
+
+
+
+{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/categories.css' %}">
+{% endblock %}

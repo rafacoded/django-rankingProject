@@ -1,0 +1,9 @@
+.card {
+    border-radius: 1.25rem;
+}
+.badge {
+    font-weight: 600;
+}
+textarea {
+    resize: none;
+}

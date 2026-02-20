@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load static %}
+
+<!-- CATEGORIES TO CHOOSE IN ORDER TO RANK (AS USER) -->
+
+{% block content %}
+<div class="container py-3">
+
+    <!-- Back button-->
+    <div class="d-flex justify-content-between align-items-center p-2">
+        <a href="{% url 'go_home' %}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+  <!-- Header -->
+  <div class="text-center mb-4">
+    <h1 class="fw-bold mb-1">Ranking</h1>
+    <p class="text-muted mb-0">Choose a category to build a tierlist</p>
+  </div>
+
+  <!-- Categories grid -->
+  <div class="row g-4 justify-content-center">
+    {% for c in categories %}
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a href="{% url 'go_ranking' c.code %}" class="text-decoration-none">
+          <div class="card border-0 shadow-sm rounded-4 h-100 category-card">
+            <div class="card-body d-flex align-items-center gap-3 p-4">
+
+              <!-- Logo -->
+              <div class="flex-shrink-0">
+                <img
+                  src="{{ c.logo }}"
+                  alt="{{ c.name }}"
+                  class="rounded-3"
+                  style="width: 64px; height: 64px; object-fit: cover;"
+                >
+              </div>
+
+              <!-- Name -->
+              <div class="flex-grow-1">
+                <h5 class="mb-0 fw-semibold text-dark">{{ c.name }}</h5>
+              </div>
+
+              <!-- Arrow -->
+              <div class="text-muted">
+                <span class="fs-4">›</span>
+              </div>
+
+            </div>
+          </div>
+        </a>
+      </div>
+
+    {% empty %}
+
+      <div class="col-12 col-md-8">
+        <div class="alert alert-warning border-0 rounded-4 shadow-sm text-center">
+          No categories found yet.
+        </div>
+      </div>
+
+    {% endfor %}
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static '/css/ranking_lists.css' %}">
+{% endblock %}

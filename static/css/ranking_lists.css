@@ -1,0 +1,94 @@
+/* Ranking (Categories) page */
+
+/* Optional: slightly smoother default typography */
+.container {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Card hover: soft lift + slightly stronger shadow */
+.category-card {
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+  will-change: transform;
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.12) !important;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+/* Make the entire tile feel clickable */
+a.text-decoration-none:focus-visible .category-card {
+  outline: 3px solid rgba(13, 110, 253, 0.35); /* bootstrap primary-ish */
+  outline-offset: 2px;
+}
+
+/* Logo: tiny “pop” on hover, stays subtle */
+.category-card img {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.category-card:hover img {
+  transform: scale(1.05);
+}
+
+/* Title: slight color shift on hover (keeps it classy) */
+.category-card h5 {
+  transition: color 160ms ease;
+}
+
+.category-card:hover h5 {
+  color: #0d6efd; /* Bootstrap primary */
+}
+
+/* Arrow: slide a bit to the right on hover */
+.category-card .fs-4 {
+  display: inline-block;
+  transition: transform 160ms ease, opacity 160ms ease;
+  opacity: 0.75;
+}
+
+.category-card:hover .fs-4 {
+  transform: translateX(4px);
+  opacity: 1;
+}
+
+/* Subtle “shine” highlight across the card (cute, lightweight) */
+.category-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.category-card::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -60%;
+  width: 60%;
+  height: 180%;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.0),
+    rgba(255, 255, 255, 0.35),
+    rgba(255,255,255,0.0)
+  );
+  transform: rotate(18deg);
+  transition: left 380ms ease;
+  pointer-events: none;
+}
+
+.category-card:hover::after {
+  left: 120%;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .category-card,
+  .category-card img,
+  .category-card h5,
+  .category-card .fs-4,
+  .category-card::after {
+    transition: none !important;
+  }
+}

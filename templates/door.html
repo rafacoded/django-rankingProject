@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="door-bg py-5 ">
+  <div class="row justify-content-center align-center">
+    <div class="col-12 col-md-8 col-lg-6">
+
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-4 p-md-5 text-center">
+
+          <h1 class="mb-2 fw-bold">Song Reviews</h1>
+          <p class="text-muted mb-4">
+            Where to go ?
+          </p>
+
+          <div class="d-grid gap-3">
+            {% if request.user.is_authenticated and request.user.role == "admin" %}
+                <a class="btn btn-success btn-lg" href="{% url 'go_home' %}">
+                Home
+                </a>
+                <a class="btn btn-outline-danger btn-lg" href="{% url 'do_logout' %}">
+                Log out
+              </a>
+            {% else %}
+              <a class="btn btn-outline-secondary btn-lg" href="{% url 'do_login' %}">
+                Log in
+              </a>
+              <a class="btn btn-success btn-lg" href="{% url 'do_register' %}">
+                Register
+              </a>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
