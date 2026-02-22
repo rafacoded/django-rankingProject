@@ -4,12 +4,6 @@
 <!-- SPECIFIC RANKING OF A CERTAIN CATEGORY -->
 
 {% block content %}
-    <!-- Back button-->
-    <div class="d-flex justify-content-between align-items-center p-2">
-        <a href="{% url 'show_categories' %}" class="btn btn-sm btn-outline-secondary">
-          <i class="bi bi-arrow-left"></i> Back
-        </a>
-    </div>
 
     <div class="container py-4">
 
@@ -87,7 +81,6 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <script>
-    {% if saved_tiers %}
       const saved = {{ saved_tiers|safe }};
 
       Object.keys(saved).forEach(tier => {
@@ -99,7 +92,6 @@
           if (card) area.appendChild(card);
         });
       });
-    {% endif %}
 
     document.addEventListener("DOMContentLoaded", () => {
       const pool = document.getElementById("pool");

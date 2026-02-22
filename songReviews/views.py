@@ -1,6 +1,10 @@
 import csv
 import json
+from pymongo import MongoClient
 
+from django.shortcuts import render
+from django.urls import reverse
+from django.contrib import messages
 from django.contrib.auth import login, authenticate, logout
 from django.db.models import Q
 from django.http import HttpResponseForbidden, JsonResponse
@@ -27,6 +31,7 @@ def show_songs(request):
         )
 
     return render(request, "songs.html", {"songs": songs, "q": q})
+
 
 
 def view_song(request, songCode):
@@ -69,9 +74,6 @@ def add_review(request, songCode):
     if request.method != "POST":
         return redirect("view_song", songCode=songCode)
 
-    if not request.user.is_authenticated:
-        return redirect("do_login")
-
     rating = request.POST.get("rating")
     comments = (request.POST.get("comments") or "").strip()
 
@@ -112,15 +114,15 @@ def go_ranking(request, category_code):
     category = mongo(Category).get(code=category_code)
     songs = mongo(Song).filter(categories__contains=[category_code])
 
-    saved_tiers = None
+    saved_tiers = {"S": [], "A": [], "B": [], "C": [], "D": []}
     has_saved = False
 
     if request.user.is_authenticated:
         username = request.user.username
-        existing = mongo(Ranking).filter(
+        existing = (mongo(Ranking).filter(
             user=username,
-            categoryCode=category_code
-        ).order_by("-rankingDate").first()
+            categoryCode=category_code)
+                    .order_by("-rankingDate").first())
 
         if existing:
             has_saved = True
@@ -146,13 +148,14 @@ def save_tierlist(request):
         return redirect("go_home")
 
     if not request.user.is_authenticated:
-        return redirect("do_login")
+        messages.warning(request, "Inicia sesión para guardar tu ranking.")
+        login_url = reverse("do_login")
+        return redirect(f"{login_url}?next={request.path}")
 
     category_code = int(request.POST.get("category_code"))
     tier_data = json.loads(request.POST.get("tier_data"))
 
     username = request.user.username
-
     tier_score = {"S": 5, "A": 4, "B": 3, "C": 2, "D": 1}
 
     rank_list = []
@@ -164,31 +167,33 @@ def save_tierlist(request):
                 "score": tier_score.get(tier, 0),
             })
 
-    existing = mongo(Ranking).filter(
-        user=username,
-        categoryCode=category_code
-    ).first()
+    if not rank_list:
+        messages.warning(request, "No puedes guardar un ranking vacío.")
+        return redirect("go_ranking", category_code=category_code)
+
+    existing = mongo(Ranking).filter(user=username, categoryCode=category_code).first()
 
     if existing:
-        # UPDATE
         mongo(Ranking).filter(id=existing.id).update(
             rankingDate=timezone.now(),
             rankList=rank_list
         )
     else:
-        # CREATE
-        ranking = Ranking()
-        ranking.user = username
-        ranking.rankingDate = timezone.now()
-        ranking.categoryCode = category_code
-        ranking.rankList = rank_list
+        ranking = Ranking(
+            user=username,
+            rankingDate=timezone.now(),
+            categoryCode=category_code,
+            rankList=rank_list
+        )
         ranking.save(using="mongodb")
 
     return redirect("go_ranking", category_code=category_code)
 
-
 # -- ADMIN FUNCTIONS --
 def go_categories(request):
+
+    if getattr(request.user, "role", None) != "admin":
+        return HttpResponseForbidden("Not allowed")
 
     q = (request.GET.get("q") or "").strip()
 
@@ -217,6 +222,10 @@ def go_categories(request):
     })
 
 def add_songs_category(request):
+
+    if getattr(request.user, "role", None) != "admin":
+        return HttpResponseForbidden("Not allowed")
+
     selected = json.loads(request.POST.get("songs", "[]"))
     category_codes = json.loads(request.POST.get("category_codes", "[]"))
 
@@ -241,6 +250,10 @@ def show_categories(request):
     return render(request, "ranking.html", {"categories": categories})
 
 def update_category(request):
+
+    if getattr(request.user, "role", None) != "admin":
+        return HttpResponseForbidden("Not allowed")
+
     if request.method != "POST":
         return redirect("go_categories")
 
@@ -278,6 +291,10 @@ def category_songs(request, code):
 
 
 def remove_songs_category(request, code):
+
+    if getattr(request.user, "role", None) != "admin":
+        return HttpResponseForbidden("Not allowed")
+
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "POST only"}, status=405)
 
@@ -303,6 +320,9 @@ def remove_songs_category(request, code):
     return JsonResponse({"ok": True, "modified": res.modified_count})
 
 def delete_category(request, code):
+    if getattr(request.user, "role", None) != "admin":
+        return HttpResponseForbidden("Not allowed")
+
     code = int(code)
     mongo(Category).filter(code=code).delete()
 
@@ -313,36 +333,56 @@ def delete_category(request, code):
     return redirect("go_categories")
 
 
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from pymongo import MongoClient
-
-@login_required
 def stats(request):
     client = MongoClient("mongodb://localhost:27017")
     db = client["songreviews"]
 
     rankings_col = db["ranking"]
+    reviews_col  = db["reviews"]
 
-    # Resumen global
+    # 0 OVERVIEW
     total_rankings = rankings_col.count_documents({})
 
-    total_ratings_agg = list(rankings_col.aggregate([
+    total_placements_agg = list(rankings_col.aggregate([
         {"$unwind": "$rankList"},
         {"$group": {"_id": None, "total": {"$sum": 1}}}
     ]))
-    total_ratings = int(total_ratings_agg[0]["total"]) if total_ratings_agg else 0
+    total_placements = int(total_placements_agg[0]["total"]) if total_placements_agg else 0
 
-    # Top canciones por media (más valoradas)
-    top_avg_pipeline = [
+    overview = {
+        "total_rankings": total_rankings,
+        "total_placements": total_placements,
+    }
+
+    # 1 TOP: MÁS APARECEN EN S
+
+    top_avg_score_pipeline = [
         {"$unwind": "$rankList"},
+
+        # Asegura que score es numérico
+        {"$addFields": {
+            "scoreInt": {"$toInt": {"$ifNull": ["$rankList.score", 0]}}
+        }},
+
         {"$group": {
             "_id": "$rankList.song",
-            "avgScore": {"$avg": "$rankList.score"},
+            "avgScore": {"$avg": "$scoreInt"},
             "votes": {"$sum": 1},
+            "sCount": {"$sum": {"$cond": [{"$eq": ["$scoreInt", 5]}, 1, 0]}},
         }},
+
+        # opcional: evita que gane una canción con 1 sola aparición
+        {"$match": {"votes": {"$gte": 2}}},
+
+        {"$addFields": {
+            "sRate": {"$cond": [{"$gt": ["$votes", 0]}, {"$divide": ["$sCount", "$votes"]}, 0]}
+        }},
+
+        # Orden principal: media, luego votos (para desempatar)
         {"$sort": {"avgScore": -1, "votes": -1}},
+
         {"$limit": 20},
+
         {"$lookup": {
             "from": "songs",
             "localField": "_id",
@@ -355,29 +395,23 @@ def stats(request):
             "code": "$_id",
             "avg": {"$round": ["$avgScore", 2]},
             "votes": 1,
+            "sRate": {"$round": [{"$multiply": ["$sRate", 100]}, 1]},
             "name": {"$ifNull": ["$song.name", {"$concat": ["Song #", {"$toString": "$_id"}]}]},
             "artist": {"$ifNull": ["$song.artist", ""]},
             "artwork": {"$ifNull": ["$song.artwork", ""]},
         }},
     ]
-    top_avg = list(rankings_col.aggregate(top_avg_pipeline))
+    top_avg_score = list(rankings_col.aggregate(top_avg_score_pipeline))
+    # 2 TOP REVIEWS: MEJOR VALORADAS (reviews 1–5)
 
-    # Top "mejores puestos" (por % de tier S)
-    top_s_pipeline = [
-        {"$unwind": "$rankList"},
+    top_reviewed_pipeline = [
         {"$group": {
-            "_id": "$rankList.song",
-            "votes": {"$sum": 1},
-            "sCount": {"$sum": {"$cond": [{"$eq": ["$rankList.score", 5]}, 1, 0]}},
-            "topCount": {"$sum": {"$cond": [{"$gte": ["$rankList.score", 4]}, 1, 0]}},
+            "_id": "$songCode",
+            "avgRating": {"$avg": "$rating"},
+            "reviews": {"$sum": 1}
         }},
-        {"$addFields": {
-            "sRate": {"$cond": [{"$gt": ["$votes", 0]}, {"$divide": ["$sCount", "$votes"]}, 0]},
-            "topRate": {"$cond": [{"$gt": ["$votes", 0]}, {"$divide": ["$topCount", "$votes"]}, 0]},
-        }},
-
-        {"$match": {"votes": {"$gte": 2}}},
-        {"$sort": {"sRate": -1, "votes": -1}},
+        {"$match": {"reviews": {"$gte": 2}}},   # mínimo para que no gane una con 1 review
+        {"$sort": {"avgRating": -1, "reviews": -1}},
         {"$limit": 20},
         {"$lookup": {
             "from": "songs",
@@ -389,30 +423,27 @@ def stats(request):
         {"$project": {
             "_id": 0,
             "code": "$_id",
-            "votes": 1,
-            "sCount": 1,
-            "topCount": 1,
-            "sRate": {"$round": [{"$multiply": ["$sRate", 100]}, 1]},
-            "topRate": {"$round": [{"$multiply": ["$topRate", 100]}, 1]},
+            "avg": {"$round": ["$avgRating", 2]},
+            "reviews": 1,
             "name": {"$ifNull": ["$song.name", {"$concat": ["Song #", {"$toString": "$_id"}]}]},
             "artist": {"$ifNull": ["$song.artist", ""]},
             "artwork": {"$ifNull": ["$song.artwork", ""]},
-        }},
+        }}
     ]
-    top_s = list(rankings_col.aggregate(top_s_pipeline))
+    top_reviewed = list(reviews_col.aggregate(top_reviewed_pipeline))
 
-    # Promedio por categoría (score medio global por categoría)
-    cat_pipeline = [
+    # 3 MEDIA DE TIER POR CATEGORÍA
+
+    avg_by_category_pipeline = [
         {"$unwind": "$rankList"},
         {"$group": {
             "_id": "$categoryCode",
-            "avgScore": {"$avg": "$rankList.score"},
-            "ratings": {"$sum": 1},
-            "rankings": {"$addToSet": "$_id"},
+            "avgScore": {"$avg": "$rankList.score"},   # score ya es 5..1
+            "placements": {"$sum": 1},
+            "rankingIds": {"$addToSet": "$_id"},
         }},
-        {"$addFields": {"rankingCount": {"$size": "$rankings"}}},
-        {"$sort": {"avgScore": -1, "ratings": -1}},
-        {"$limit": 50},
+        {"$addFields": {"rankingCount": {"$size": "$rankingIds"}}},
+        {"$sort": {"avgScore": -1, "placements": -1}},
         {"$lookup": {
             "from": "categories",
             "localField": "_id",
@@ -424,28 +455,24 @@ def stats(request):
             "_id": 0,
             "code": "$_id",
             "avg": {"$round": ["$avgScore", 2]},
-            "ratings": 1,
+            "placements": 1,
             "rankingCount": 1,
             "name": {"$ifNull": ["$cat.name", {"$concat": ["Category #", {"$toString": "$_id"}]}]},
             "logo": {"$ifNull": ["$cat.logo", ""]},
-        }},
+        }}
     ]
-    categories = list(rankings_col.aggregate(cat_pipeline))
-
-    overview = {
-        "total_rankings": total_rankings,
-        "total_ratings": total_ratings,
-    }
+    categories = list(rankings_col.aggregate(avg_by_category_pipeline))
 
     return render(request, "stats.html", {
         "overview": overview,
-        "top_avg": top_avg,
-        "top_s": top_s,
+        "top_avg_score": top_avg_score,
+        "top_reviewed": top_reviewed,
         "categories": categories,
     })
 
-
 def data_load(request):
+    if getattr(request.user, "role", None) != "admin":
+        return HttpResponseForbidden("Not allowed")
     if request.method == "POST":
         uploaded_file = request.FILES.get('csvFile')
 
@@ -490,46 +517,123 @@ def admin_panel(request):
 
     return render(request, 'admin.html')
 
+def users_panel(request):
+    if getattr(request.user, "role", None) != "admin":
+        return HttpResponseForbidden("Not allowed")
+
+    users = User.objects.all().order_by("username")
+
+    rankings_qs = mongo(Ranking).all().order_by("-rankingDate")[:50]
+    categories_qs = mongo(Category).all()
+
+    cat_map = {int(c.code): c for c in categories_qs}
+
+    rankings = []
+    for r in rankings_qs:
+        cat = cat_map.get(int(r.categoryCode)) if r.categoryCode is not None else None
+        rankings.append({
+            "user": r.user,
+            "rankingDate": r.rankingDate,
+            "categoryCode": int(r.categoryCode) if r.categoryCode is not None else None,
+            "category_name": getattr(cat, "name", f"Category #{r.categoryCode}"),
+            "category_logo": getattr(cat, "logo", ""),
+            "items_count": len(r.rankList or []),
+        })
+
+    # TOP 5 MOST RECENT REVIEWS
+    client = MongoClient("mongodb://localhost:27017")
+    db = client["songreviews"]
+    reviews_col = db["reviews"]
+
+    recent = list(
+        reviews_col.find({}, {"_id": 0})
+        .sort("reviewDate", -1)
+        .limit(5)
+    )
+
+    song_codes = [int(x.get("songCode")) for x in recent if x.get("songCode") is not None]
+    songs = list(mongo(Song).filter(code__in=song_codes))
+    song_map = {int(s.code): s for s in songs}
+
+    recent_reviews = []
+    for rev in recent:
+        code = rev.get("songCode")
+        s = song_map.get(int(code)) if code is not None else None
+        recent_reviews.append({
+            "user": rev.get("user", "Anonymous"),
+            "songCode": code,
+            "song_name": getattr(s, "name", f"Song #{code}"),
+            "artist": getattr(s, "artist", ""),
+            "artwork": getattr(s, "artwork", ""),
+            "rating": rev.get("rating", ""),
+            "comments": rev.get("comments", ""),
+            "reviewDate": rev.get("reviewDate", ""),
+        })
+
+    return render(request, "users_panel.html", {
+        "users": users,
+        "rankings": rankings,
+        "recent_reviews": recent_reviews,
+    })
+
 # -- ACCESS FUNCTIONS --
 def do_login(request):
+    next_url = request.GET.get("next") or request.POST.get("next") or reverse("go_home")
 
-    if request.method == 'POST':
-
+    if request.method == "POST":
         form = LoginForm(request, data=request.POST)
 
         if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
+            username = form.cleaned_data.get("username")
+            password = form.cleaned_data.get("password")
             user = authenticate(request, username=username, password=password)
 
             if user is not None:
                 login(request, user)
-                return redirect('go_home')
+                return redirect(next_url)
+
     else:
         form = LoginForm()
 
-    return render(request, 'login.html', {'form': form})
+    return render(request, "login.html", {
+        "form": form,
+        "hide_header": True,
+        "next": next_url,
+    })
+
 
 def do_register(request):
+    next_url = request.GET.get("next") or request.POST.get("next") or reverse("go_home")
 
-    if request.method == 'POST':
-
+    if request.method == "POST":
         form = RegisterForm(request.POST)
 
         if form.is_valid():
             user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
+            user.set_password(form.cleaned_data["password"])
             user.save()
-            return redirect('do_login')
 
-        return render(request, 'register.html', {'form': form})
+            login_url = reverse("do_login")
+            return redirect(f"{login_url}?next={next_url}")
+
+        return render(request, "register.html", {
+            "form": form,
+            "hide_header": True,
+            "next": next_url,
+        })
 
     form = RegisterForm()
-    return render(request, 'register.html', {'form': form})
+    return render(request, "register.html", {
+        "form": form,
+        "hide_header": True,
+        "next": next_url,
+    })
+
 
 def do_logout(request):
     logout(request)
-    return render(request, 'door.html')
+    return redirect("go_door")
+
 
 # UTILS
 def mongo(model):

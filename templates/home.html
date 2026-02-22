@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Home{% endblock %}
+{% load static %}
 
 {% block content %}
 <div class="container py-5">
@@ -9,11 +10,6 @@
 
       <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
         <div class="card-body p-4 p-md-5">
-
-          <div class="text-center mb-4">
-            <h1 class="fw-bold mb-2">Song Reviews</h1>
-            <p class="text-muted mb-0">Home</p>
-          </div>
 
           <div class="row g-3">
             <div class="col-12 col-sm-6">
@@ -25,13 +21,6 @@
               </a>
             </div>
 
-            <div class="col-12 col-sm-6">
-              <a class="btn btn-outline-secondary w-100 py-3 rounded-3 fw-semibold"
-                 href="{% url 'do_login' %}">
-                <i class="bi bi-chat-square-text-fill fs-1 me-2"></i>
-                  <p>Reviews</p>
-              </a>
-            </div>
             {% if request.user.role == 'admin' %}
                 <div class="col-12 col-sm-6">
                   <a class="btn btn-outline-success w-100 py-3 rounded-3 fw-semibold"
@@ -46,8 +35,9 @@
                   <a class="btn btn-outline-info w-100 py-3 rounded-3 fw-semibold"
                      href="{% url 'show_songs' %}">
                       <i class="bi bi-music-note fs-1 me-2"></i>
+                      <i class="bi bi-chat-square-text-fill fs-1 me-2"></i>
 
-                      <p>Songs</p>
+                      <p>Review Songs</p>
                   </a>
             </div>
             <div class="col-12 col-sm-6">
@@ -71,12 +61,8 @@
             {% else %}
                 <div>
                     <span class="badge text-bg-warning rounded-pill px-3 py-2">
-                    You’re not logged in
+                    You’re not logged in just yet
                     </span>
-                    <a class="btn btn-info" href="{% url 'do_login' %}">
-                        <i class="bi bi-box-arrow-in-right"></i>
-                        Log In now!
-                    </a>
                 </div>
 
             {% endif %}

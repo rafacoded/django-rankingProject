@@ -1,0 +1,48 @@
+{% load static %}
+
+<header class="sr-header shadow-sm">
+  <div class="container-fluid px-4 d-flex align-items-center justify-content-between">
+
+    <!-- Logo + App -->
+    <div class="d-flex align-items-center justify-content-between w-100">
+
+        <!-- Back button -->
+      <button onclick="history.back()" class="btn btn-sm btn-secondary ">
+        <i class="bi bi-arrow-left"></i> Back
+      </button>
+
+      <a href="{% url 'go_home' %}" class="header-logo d-flex align-items-center text-decoration-none">
+        <img src="{% static 'img/songrate_logo.png' %}"
+             alt="SongRate Logo"
+             style="height: 60px; width: auto;">
+      </a>
+
+
+
+
+
+    <!-- Auth buttons -->
+    <div class="d-flex align-items-center gap-2">
+
+      {% if request.user.is_authenticated %}
+        <a href="{% url 'do_logout' %}" class="btn btn-sm btn-danger ">
+          Logout
+        </a>
+
+      {% else %}
+
+        <a href="{% url 'do_login' %}" class="btn btn-sm btn-outline-success">
+          Login
+        </a>
+
+        <a href="{% url 'do_register' %}" class="btn btn-sm btn-info">
+          Register
+        </a>
+
+      {% endif %}
+
+
+    </div>
+    </div>
+  </div>
+</header>

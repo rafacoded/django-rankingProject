@@ -127,7 +127,7 @@ def iso_date_loose(d: str | None) -> str | None:
 def main():
     # --- CONFIG ---
     # cambiar ARTISTS cada vez que se quiera importar
-    ARTISTS = ["Will Wood"]
+    ARTISTS = [ "Amy Winehouse", "Ralphie Choo", "ROSALÍA", "PinkPantheress", "Troye Sivan", "rusowsky", "Sabrina Carpenter"]
     MAX_RELEASE_GROUPS_PER_ARTIST = 5
 
     # Mongo
@@ -190,7 +190,6 @@ def main():
                     "duration": duration_sec if duration_sec is not None else 0,
                     "artwork": cover_url or "",  # si no hay, vacío
                     "releaseDate": rg_first_release or "",
-                    # categorías: por ahora vacío; luego puedes asignar por reglas
                     "categories": [],
                     # extras útiles (no estorban)
                     "source": "musicbrainz",

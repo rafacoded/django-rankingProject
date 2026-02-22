@@ -16,6 +16,43 @@
   box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.15);
 }
 
+/* ===== Header ===== */
 
+.sr-header {
+  background: linear-gradient(135deg, #aa76fa, #8ce3fb);
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+}
 
+.header-logo { background: transparent !important; }
+.header-logo img { background: transparent !important; display: block; }
+
+.sr-header-logo{
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  filter: none;
+}
+
+.sr-logo {
+  width: 38px;
+  height: 38px;
+  transition: transform 0.2s ease;
+}
+
+.sr-logo:hover {
+  transform: rotate(8deg) scale(1.05);
+}
+
+.sr-brand {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.5px;
+}
+
+.sr-user {
+  opacity: 0.9;
+}
 
